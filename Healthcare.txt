@@ -1,0 +1,600 @@
+# %% [markdown]
+# # Predicting Favorable Outcomes for MedCamp Events
+# 
+# ## **1. Problem Statement**
+# MedCamp is a not-for-profit organization that organizes health camps to improve the health conditions of working professionals. Despite high registration numbers, there is a significant drop-off in attendance and participation at these camps. 
+# 
+# The goal is to predict the probability of favorable outcomes at these camps, which can help optimize inventory and improve participant experience.
+# 
+# ---
+# 
+# ## **2. Data Overview**
+# - **Number of Events**: 65 events over 4 years.
+# - **Registrations**: ~110,000 records.
+# - **Formats of Camps**:  
+#   1. **Format 1**: Provides an instantaneous health score.  
+#   2. **Format 2**: Provides an instantaneous health score.  
+#   3. **Format 3**: Offers awareness stalls for various health issues.
+# - **Favorable Outcome Definition**:
+#   - Format 1 & 2: Receiving a health score.
+#   - Format 3: Visiting at least one awareness stall.
+# 
+# ---
+# 
+# ## **3. Key Challenges**
+# - High drop-off between registration and participation.
+# - Limited participant profile information.
+# - Missing data due to hardware failures during some events.
+# - Balancing inventory for cost efficiency and user experience.
+# 
+# ---
+# 
+# ## **4. Objectives**
+# 1. Predict the probability of a favorable outcome for each participant.
+# 2. Use predictions to:
+#    - Optimize inventory management.
+#    - Improve overall experience at the health camps.
+# 
+# ---
+# 
+# ## **5. Approach**
+# 1. **Data Preparation**:
+#    - Handle missing data (e.g., registration date/time).
+#    - Create features based on available data.
+#    - Encode categorical variables.
+# 2. **Exploratory Data Analysis (EDA)**:
+#    - Analyze registration patterns.
+#    - Study the drop-off between registrations and favorable outcomes.
+#    - Understand participant behavior across different formats.
+# 3. **Model Building**:
+#    - Select classification models to predict the probability of favorable outcomes.
+#    - Compare models (e.g., Logistic Regression, Random Forest, Gradient Boosting).
+# 4. **Model Evaluation**:
+#    - Use metrics like AUC-ROC, Precision-Recall, and Log Loss.
+#    - Evaluate on a validation dataset.
+# 5. **Insights and Recommendations**:
+#    - Identify key factors driving favorable outcomes.
+#    - Provide actionable recommendations to improve event planning and execution.
+# 
+# ---
+# 
+# 
+
+# %% [markdown]
+# # Data Description
+# 
+# The dataset for the MedCamp problem consists of six CSV files contained within the `Train.zip` file, along with a data dictionary that defines each variable.
+# 
+# ---
+# 
+# ## **1. Health_Camp_Detail.csv**
+# This file provides details about each health camp, including:
+# 
+# - **Health_Camp_Id**: Unique identifier for the health camp.
+# - **Camp_Start_Date**: The start date of the camp.
+# - **Camp_End_Date**: The end date of the camp.
+# - **Category**: The category/type of the health camp.
+# 
+# ---
+# 
+# ## **2. Train.csv**
+# This file contains registration details for all the test camps. It includes:
+# 
+# - **Patient_ID**: Unique identifier for the patient.
+# - **Health_Camp_ID**: Unique identifier for the health camp.
+# - **Registration_Date**: The date of registration for the camp.
+# - **Anonymized Variables**: Additional features as of the registration date (details anonymized).
+# 
+# ---
+# 
+# ## **3. Patient_Profile.csv**
+# This file contains profile information about the patients. It includes:
+# 
+# - **Patient_ID**: Unique identifier for the patient.
+# - **Online_Follower**: Indicates if the patient follows MedCamp online.
+# - **Social_Media_Details**: Indicates the patient's social media activity.
+# - **Income**: The income group of the patient.
+# - **Education**: The education level of the patient.
+# - **Age**: The age of the patient.
+# - **First_Interaction_Date**: The first interaction date of the patient with MedCamp.
+# - **City_Type**: The type of city the patient belongs to.
+# - **Employer_Category**: The category of the patient’s employer.
+# 
+# ---
+# 
+# ## **4. First_Health_Camp_Attended.csv**
+# This file contains details about people who attended health camps of the **first format**. It includes:
+# 
+# - **Patient_ID**: Unique identifier for the patient.
+# - **Health_Camp_ID**: Unique identifier for the health camp.
+# - **Donation**: The amount donated by the patient.
+# - **Health_Score**: The health score of the patient from the camp.
+# 
+# ---
+# 
+# ## **5. Second_Health_Camp_Attended.csv**
+# This file contains details about people who attended health camps of the **second format**. It includes:
+# 
+# - **Patient_ID**: Unique identifier for the patient.
+# - **Health_Camp_ID**: Unique identifier for the health camp.
+# - **Health_Score**: The health score of the patient from the camp.
+# 
+# ---
+# 
+# ## **6. Third_Health_Camp_Attended.csv**
+# This file contains details about people who attended health camps of the **third format**. It includes:
+# 
+# - **Patient_ID**: Unique identifier for the patient.
+# - **Health_Camp_ID**: Unique identifier for the health camp.
+# - **Number_of_Stall_Visited**: The number of stalls visited by the patient.
+# - **Last_Stall_Visited_Number**: The number of the last stall visited by the patient.
+# 
+# ---
+# 
+# ### **Additional Notes**
+# - The data dictionary provided alongside these files defines all variables and their descriptions in detail.
+# - These datasets need to be merged and processed appropriately to create a unified dataset for analysis and prediction.
+# 
+
+# %%
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+pd.set_option('display.max_columns', None)  
+
+# %%
+train = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\Train.csv")
+test = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\test_l0Auv8Q.csv")
+submission = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\sample_submmission.csv")
+fhc = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\First_Health_Camp_Attended.csv")
+shc = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\Second_Health_Camp_Attended.csv")
+thc = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\Third_Health_Camp_Attended.csv")
+patient = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\Patient_Profile.csv")
+health_camp = pd.read_csv(r"D:\Data Science\Hackathon Projects\Healthcare\Train_2\Train\Health_Camp_Detail.csv")
+
+# %% [markdown]
+# ### We will combine train and test and then map all the remaining data with combined data
+
+# %%
+combined = pd.concat([train, test], axis=0,ignore_index=True)
+train.shape, test.shape, combined.shape 
+
+# %%
+combined.columns
+
+# %%
+patient.columns
+
+# %%
+#Patient Data
+combined = pd.merge(combined, patient, on='Patient_ID', how='left')
+#First Health Camp Data
+combined = pd.merge(combined, fhc, on=["Patient_ID","Health_Camp_ID"], how='left')
+#Second Health Camp Data
+combined = pd.merge(combined, shc, on=["Patient_ID","Health_Camp_ID"], how='left')
+#Third Health Camp Data
+combined = pd.merge(combined, thc, on=["Patient_ID","Health_Camp_ID"], how='left')
+#Health Camp Data
+combined = pd.merge(combined, health_camp, on='Health_Camp_ID', how='left')
+
+
+
+# %%
+del health_camp, fhc, shc, thc, patient   
+
+# %%
+combined.head()
+
+# %%
+#Registration Date, Camp Start Date, Camp End Date, First Interaction Date
+
+combined.info()
+
+# %%
+#Changing Everything to Date Time Format
+combined["Registration_Date"] = pd.to_datetime(combined['Registration_Date'], dayfirst=True)
+combined["First_Interaction"] = pd.to_datetime(combined['First_Interaction'], dayfirst=True)
+combined["Camp_Start_Date"] = pd.to_datetime(combined['Camp_Start_Date'], dayfirst=True)
+combined["Camp_End_Date"] = pd.to_datetime(combined['Camp_End_Date'], dayfirst=True)
+
+# %% [markdown]
+# ### Feature Engineering
+
+# %%
+#Registration vs Interaction 
+combined["Interaction_Days"] = (combined["Registration_Date"] - combined["First_Interaction"]).dt.days
+
+#Registration vs Camp Start
+combined["Magic1"] = (combined["Camp_Start_Date"] - combined["Registration_Date"]).dt.days
+
+#Camp Duration 
+combined["Camp_Duration"] = (combined["Camp_End_Date"] - combined["Camp_Start_Date"]).dt.days
+
+#Active Connect
+combined["Active_Connect"] = (combined["Camp_End_Date"] - combined["First_Interaction"]).dt.days
+
+#First Interaction vs Camp Start Date 
+combined["Waiting_Period"] = (combined["Camp_Start_Date"] - combined["First_Interaction"]).dt.days
+
+#Camp End Date vs Registration Date
+combined["Magic2"] = (combined["Camp_End_Date"] - combined["Registration_Date"]).dt.days
+
+# %%
+#Combined Online Activities
+combined["Digital_Marketing"] = combined["Online_Follower"] + combined["LinkedIn_Shared"] + combined["Twitter_Shared"] + combined["Facebook_Shared"]
+
+# %%
+#Dropping the Social Media Features
+combined.drop(["Online_Follower", "LinkedIn_Shared", "Twitter_Shared", "Facebook_Shared"], axis=1, inplace=True)
+
+# %% [markdown]
+# ### Process : First Interaction happens then the Patient registers for the Healthcamp.
+# 
+# * He is informed about the Camp Start Date and End Date.
+# * Camp End Date> Camp Start Date> Registration Date.
+
+# %%
+def sequence(regn,start,end):
+    if (end>start>regn):
+        return 1
+    else:
+        return 0
+    
+combined["comm_seq"] = combined.apply(lambda x:sequence(x["Registration_Date"],x["Camp_Start_Date"],x["Camp_End_Date"]),axis=1)
+
+# %%
+combined["comm_seq"].value_counts(normalize=True)
+
+# %%
+#Registration Date
+combined["Regn_Days"] = combined["Registration_Date"].dt.day
+combined["Regn_Month"] = combined["Registration_Date"].dt.month
+combined["Regn_Year"] = combined["Registration_Date"].dt.year
+
+
+# %% [markdown]
+# ### How Many Patients?
+# 
+# * How Many Patients registered every day,month and Year.
+# * How Many Health camps have been organized this Year/Month.
+
+# %%
+#Registration Per Month
+combined["PerMonth_Regn"] = combined.groupby("Regn_Month")["Patient_ID"].transform("nunique")
+#Registration Per Year
+combined["PerYear_Regn"] = combined.groupby("Regn_Year")["Patient_ID"].transform("nunique")
+#Registration Per Day
+combined["PerDay_Regn"] = combined.groupby("Regn_Days")["Patient_ID"].transform("nunique")
+
+# %%
+#Camp Start Date
+combined["CS_Days"] = combined["Camp_Start_Date"].dt.day
+combined["CS_Month"] = combined["Camp_Start_Date"].dt.month
+combined["CS_Year"] = combined["Camp_Start_Date"].dt.year
+
+#Camp End Date
+combined["CE_EDays"] = combined["Camp_End_Date"].dt.day
+combined["CE_EMonth"] = combined["Camp_End_Date"].dt.month
+combined["CE_EYear"] = combined["Camp_End_Date"].dt.year
+
+
+# %% [markdown]
+# ### How Many Health Camps Were Organized in Beginning of the Date, Month and Year
+# 
+# * Same for Camp End Date
+
+# %%
+#Camp Start Date
+combined["HC_PM"] = combined.groupby("CS_Days")["Health_Camp_ID"].transform("nunique")
+combined["HC_YR"] = combined.groupby("CS_Year")["Health_Camp_ID"].transform("nunique")
+combined["HC_MN"] = combined.groupby("CS_Month")["Health_Camp_ID"].transform("nunique")
+
+#Camp End Date
+combined["HC_ED"] = combined.groupby("CE_EDays")["Health_Camp_ID"].transform("nunique")
+combined["HC_EYR"] = combined.groupby("CE_EYear")["Health_Camp_ID"].transform("nunique")
+combined["HC_EM"] = combined.groupby("CE_EMonth")["Health_Camp_ID"].transform("nunique")
+
+
+
+# %% [markdown]
+# ### How Many Health Camps were Organized for every Patient.. ie., Count of Health Camps
+# ### How many patients appeared in the healthcamp
+
+# %%
+combined["Patients_in_HC"] = combined.groupby("Health_Camp_ID")["Patient_ID"].transform("nunique")
+combined["HC_For_Patients"] = combined.groupby("Patient_ID")["Health_Camp_ID"].transform("nunique")
+combined["HCC_For_Patients"] = combined.groupby("Patient_ID")["Health_Camp_ID"].transform("count")
+
+# %% [markdown]
+# ### Creation of Target Variable
+
+# %%
+def target(hs,hs_,stall_visit,last_stall_visited):
+    if (hs>0 or hs_>0 or stall_visit>0 or last_stall_visited>0):
+        return 1
+    else:
+        return 0
+
+# %%
+combined["Target"] = combined.apply(lambda x:target(x["Health_Score"],x["Health Score"],x["Number_of_stall_visited"],x["Last_Stall_Visited_Number"]),axis=1)
+
+# %%
+combined.columns
+
+# %%
+new = combined.drop(["Health_Score","Health Score","Number_of_stall_visited","Last_Stall_Visited_Number","Unnamed: 4",'Camp_Start_Date', 'Camp_End_Date','First_Interaction',"Registration_Date"], axis=1)
+new.head()
+
+# %%
+new.Target.value_counts().plot(kind='bar')
+
+# %%
+#Check if there is any relation between Categories and Target
+import scipy.stats as stats
+cats = ["Category1","Category2","Category3"]
+
+for i in cats:
+    tbl = pd.crosstab(new[i], new["Target"])
+    teststats,pvalue,dof,exp = stats.chi2_contingency(tbl)
+    print("{} : Pvalue = {}".format(i,pvalue))
+
+# %%
+#Health Camps as per Category 2
+new["Magic3"] = new.groupby("Category2")["Health_Camp_ID"].transform("nunique")
+new["Magic4"] = new.groupby("Category3")["Health_Camp_ID"].transform("nunique")
+new["Magic5"] = new.groupby("Category1")["Health_Camp_ID"].transform("nunique")
+
+# %%
+#Patients..
+new["Magic6"] = new.groupby("Category2")["Patient_ID"].transform("nunique")
+new["Magic7"] = new.groupby("Category3")["Patient_ID"].transform("nunique")
+new["Magic8"] = new.groupby("Category1")["Patient_ID"].transform("nunique")
+
+# %%
+#Deal with Categories
+
+new["Category1"] = pd.factorize(new["Category1"])[0]
+new["Category2"] = pd.factorize(new["Category2"])[0]
+new["Category3"] = pd.factorize(new["Category3"])[0]
+
+
+# %%
+#Check if there is any relation between Categories and Target
+import scipy.stats as stats
+cats = ["Var1","Var2","Var3","Var4","Var5"]
+
+for i in cats:
+    tbl = pd.crosstab(new[i], new["Target"])
+    teststats,pvalue,dof,exp = stats.chi2_contingency(tbl)
+    print("{} : Pvalue = {}".format(i,pvalue))
+
+#We cannot drop the Var1, Var2, Var3, Var4, Var5
+
+# %%
+#Converting Negative into Postive Days
+new["Magic1"] = abs(new["Magic1"])
+new["Waiting_Period"] = abs(new["Waiting_Period"])
+
+# %%
+def incomeCat(x):
+    if x:
+        return(1)
+    else:
+        return(0)
+
+# %%
+new["Income_Cat"] = new["Income"].apply(incomeCat)
+
+# %%
+tbl = pd.crosstab(new["Income"], new["Target"])
+teststats,pvalue,dof,exp = stats.chi2_contingency(tbl)
+print("{} : Pvalue = {}".format("Income",pvalue))
+
+# %%
+new["Income"].fillna(new["Income"].median(), inplace=True)
+
+# %%
+#Employer_Category
+new["Employer_Category"] = pd.factorize(new["Employer_Category"])[0]
+new["City_Type"] = pd.factorize(new["City_Type"])[0]
+new["Education_Score"] = pd.factorize(new["Education_Score"])[0]
+
+
+# %%
+new["Age"].fillna(new["Age"].median(),inplace=True)
+
+# %%
+#Dropping the Columns which are not needed
+new.drop(["Donation","Regn_Days","Regn_Month","Regn_Year","CS_Days","CS_Month","CS_Year","CE_EDays","CE_EMonth","CE_EYear","Patient_ID","Health_Camp_ID"], axis=1, inplace=True)
+
+# %%
+new.isnull().sum()[new.isnull().sum()!=0].index
+
+# %%
+missed = ['Interaction_Days', 'Magic1', 'Magic2', 'PerMonth_Regn', 'PerYear_Regn',
+       'PerDay_Regn']
+
+for i in missed:
+    new[i].fillna(new[i].median(), inplace=True)
+
+# %% [markdown]
+# ### Modelling 
+
+# %%
+#Splitting the Data
+newtrain = new[:train.shape[0]]
+newtest = new[train.shape[0]:]
+newtest.drop(["Target"], axis=1, inplace=True)
+
+# %%
+train.shape,test.shape,newtrain.shape,newtest.shape
+
+# %%
+#SMOTE
+from imblearn.over_sampling import SMOTE
+X = newtrain.drop(["Target"], axis=1)
+y = newtrain["Target"]
+
+smote = SMOTE(sampling_strategy='minority',random_state=0)
+smote_x, smote_y = smote.fit_resample(X, y)
+
+# %%
+#Decision Tree 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import StratifiedKFold
+
+kfold = StratifiedKFold(n_splits=5, random_state=0, shuffle=True)
+
+tree_pred = []
+
+dtree = DecisionTreeClassifier(random_state=0)
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(dtree.fit(x_train, y_train).predict_proba(newtest))
+
+
+# %%
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+
+# %%
+submission.to_csv("DecisionTree.csv", index=False)#0.61
+
+# %% [markdown]
+# ### Random Forest Classifier
+
+# %%
+#Decision Tree 
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.model_selection import StratifiedKFold
+
+kfold = StratifiedKFold(n_splits=5, random_state=0, shuffle=True)
+
+tree_pred = []
+
+rf = RandomForestClassifier(random_state=0)
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(rf.fit(x_train, y_train).predict_proba(newtest))
+
+
+# %%
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+submission.to_csv("RandomForest.csv", index=False)#0.73
+
+
+# %% [markdown]
+# ### Gradient Boosting Classifier
+
+# %%
+
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.model_selection import StratifiedKFold
+
+kfold = StratifiedKFold(n_splits=5, random_state=0, shuffle=True)
+
+tree_pred = []
+
+gbm = GradientBoostingClassifier(random_state=0)
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(gbm.fit(x_train, y_train).predict_proba(newtest))
+
+
+# %%
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+submission.to_csv("GBM.csv", index=False)#0.75
+
+# %% [markdown]
+# ### XGBOOST 
+
+# %%
+#Decision Tree 
+from xgboost import XGBClassifier
+from sklearn.model_selection import StratifiedKFold
+
+kfold = StratifiedKFold(n_splits=5, random_state=0, shuffle=True)
+
+tree_pred = []
+
+xg = XGBClassifier(random_state=0)
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(xg.fit(x_train, y_train).predict_proba(newtest))
+
+
+# %%
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+submission.to_csv("XGBOOST.csv", index=False)#0.73
+
+# %%
+#Decision Tree 
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import StratifiedKFold
+
+kfold = StratifiedKFold(n_splits=5, random_state=0, shuffle=True)
+
+tree_pred = []
+
+lg = LGBMClassifier(random_state=0)
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(lg.fit(x_train, y_train).predict_proba(newtest))
+
+
+# %%
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+submission.to_csv("LIGHTGBM.csv", index=False)#0.73
+
+
+# %% [markdown]
+# ### Stacking Classifier
+# 
+# * Based on Above Performance, we will make LGBM as our Meta Model
+# * Remaining Models can be my base Models
+
+# %%
+from sklearn.ensemble import StackingClassifier
+
+# Define base learners as a list of tuples
+base_learners = [
+    ('RF', RandomForestClassifier(random_state=0)),
+    ('GBM', GradientBoostingClassifier(random_state=0)),
+    ('XG', XGBClassifier(random_state=0))
+]
+
+# Initialize empty list for predictions
+tree_pred = []
+
+# Define the Meta Model
+meta_model = LGBMClassifier(random_state=0)
+
+# Define the Stacking Model
+stack = StackingClassifier(
+    estimators=base_learners,
+    final_estimator=meta_model,
+    cv=5)
+
+# Train and predict
+for train_index, test_index in kfold.split(smote_x, smote_y):
+    x_train = smote_x.iloc[train_index]
+    y_train = smote_y.iloc[train_index]
+    tree_pred.append(stack.fit(x_train, y_train).predict_proba(newtest))
+
+submission["Outcome"] = pd.DataFrame(np.array(tree_pred[0]))[1]
+submission.to_csv("Stack_w/o.csv", index=False)
+
+
+
+
+# %%
+
+
+
